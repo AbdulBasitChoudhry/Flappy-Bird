@@ -25,26 +25,29 @@ pygame library
 Install Pygame using pip:
 
 bash
-Copy code
 pip install pygame
+
 Running the Game
 Clone this repository:
 bash
-Copy code
 git clone https://github.com/AbdulBasitChoudhry/flappy-bird.git
+
 Navigate to the project directory:
+
 bash
-Copy code
 cd flappy-bird
+
 Run the game:
 bash
-Copy code
 python flappybird.py
+
 Controls
 Spacebar: Make the bird flap its wings.
 P: Pause the game.
 R: Restart the game after losing.
 Q: Quit or return to the main menu.
+
+
 Contributions
 Contributions, bug reports, and feature requests are welcome! Feel free to open an issue or 
 
