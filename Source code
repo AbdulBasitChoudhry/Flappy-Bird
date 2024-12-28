@@ -1,0 +1,244 @@
+import pygame
+import sys
+import random
+
+# Initialize pygame
+# Pygame initialization is necessary to set up the game framework and enable features like graphics, sound, and event handling.
+pygame.init()
+
+# Screen dimensions
+SCREEN_WIDTH = 400
+SCREEN_HEIGHT = 600
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+
+# Game settings
+GRAVITY = 0.5
+FLAP_STRENGTH = -10
+PIPE_SPEED = -4
+PIPE_GAP = 300
+PIPE_FREQUENCY = 1500  # milliseconds
+MAX_VELOCITY = 15
+
+# Initialize screen
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Flappy Bird")
+
+# Load assets with error handling
+
+def load_image(filename, size=None):
+    """
+    Loads an image from the specified filename.
+
+    Parameters:
+        filename (str): The path to the image file.
+        size (tuple, optional): A tuple specifying the width and height to scale the image to.
+
+    Returns:
+        pygame.Surface: The loaded and optionally scaled image.
+    """
+    try:
+        image = pygame.image.load(filename).convert_alpha()
+        if size:
+            image = pygame.transform.scale(image, size)
+        return image
+    except pygame.error as e:
+        print(f"Error loading image {filename}: {e}")
+        sys.exit()
+
+def load_sound(filename):
+    try:
+        return pygame.mixer.Sound(filename)
+    except pygame.error as e:
+        print(f"Error loading sound {filename}: {e}")
+        sys.exit()
+
+background_image = load_image("background.png", (SCREEN_WIDTH, SCREEN_HEIGHT))
+bird_frames = [load_image(f"bird_frame_{i}.png", (34, 24)) for i in range(1, 6)]
+pipe_image = load_image("pipe.png", (50, 600))
+flap_sound = load_sound("flap.wav")
+collision_sound = load_sound("collision.wav")
+
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+
+# Bird class
+class Bird:
+    """
+    Represents the player-controlled bird in the game.
+
+    Attributes:
+        x (int): The x-coordinate of the bird.
+        y (int): The y-coordinate of the bird.
+        width (int): The width of the bird's hitbox.
+        height (int): The height of the bird's hitbox.
+        velocity (float): The current vertical velocity of the bird.
+        frame_index (int): The index of the current animation frame.
+        animation_timer (int): Timer to manage animation frame updates.
+    """
+    def __init__(self):
+        self.x = 50
+        self.y = SCREEN_HEIGHT // 2
+        self.width = 34
+        self.height = 24
+        self.velocity = 0
+        self.frame_index = 0
+        self.animation_timer = 0
+
+    def flap(self):
+        self.velocity = FLAP_STRENGTH
+        flap_sound.play()
+
+    def move(self):
+        self.velocity = min(self.velocity + GRAVITY, MAX_VELOCITY)
+        self.y += self.velocity
+
+    def draw(self):
+        self.animation_timer += clock.get_time()
+        if self.animation_timer >= 100:  # Update every 100ms
+            self.frame_index = (self.frame_index + 1) % len(bird_frames)
+            self.animation_timer = 0
+        screen.blit(bird_frames[self.frame_index], (self.x, self.y))
+
+# Pipe class
+class Pipe:
+    def __init__(self, x):
+        self.x = x
+        self.top_height = random.randint(50, SCREEN_HEIGHT - PIPE_GAP - 50)
+        self.bottom_height = SCREEN_HEIGHT - self.top_height - PIPE_GAP
+
+    def move(self):
+        self.x += PIPE_SPEED
+
+    def draw(self):
+        # Top pipe
+        screen.blit(pipe_image, (self.x, 0), (0, 0, 50, self.top_height))
+        # Bottom pipe
+        screen.blit(pipe_image, (self.x, SCREEN_HEIGHT - self.bottom_height), (0, 0, 50, self.bottom_height))
+
+    def collide(self, bird):
+        bird_rect = pygame.Rect(bird.x, bird.y, bird.width, bird.height)
+        top_pipe_rect = pygame.Rect(self.x, 0, 50, self.top_height)
+        bottom_pipe_rect = pygame.Rect(self.x, SCREEN_HEIGHT - self.bottom_height, 50, self.bottom_height)
+        return bird_rect.colliderect(top_pipe_rect) or bird_rect.colliderect(bottom_pipe_rect)
+
+# Main menu
+def main_menu():
+    running = True
+    while running:
+        screen.blit(background_image, (0, 0))
+        title_text = font.render("Flappy Bird", True, BLACK)
+        start_text = font.render("Press SPACE to Start", True, BLACK)
+        quit_text = font.render("Press Q to Quit", True, BLACK)
+
+        screen.blit(title_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 100))
+        screen.blit(start_text, (SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2))
+        screen.blit(quit_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    main_game()
+                if event.key == pygame.K_q:
+                    pygame.quit()
+                    sys.exit()
+
+        pygame.display.flip()
+        clock.tick(30)
+
+# Pause menu
+def pause_menu():
+    paused = True
+    while paused:
+        screen.blit(background_image, (0, 0))
+        pause_text = font.render("Paused", True, BLACK)
+        resume_text = font.render("Press R to Resume", True, BLACK)
+        quit_text = font.render("Press Q to Quit", True, BLACK)
+
+        screen.blit(pause_text, (SCREEN_WIDTH // 2 - 50, SCREEN_HEIGHT // 2 - 50))
+        screen.blit(resume_text, (SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2))
+        screen.blit(quit_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    paused = False
+                if event.key == pygame.K_q:
+                    pygame.quit()
+                    sys.exit()
+
+        pygame.display.flip()
+        clock.tick(30)
+
+# Main game loop
+def main_game():
+    bird = Bird()
+    pipes = []
+    score = 0
+    running = True
+    game_over = False
+
+    pygame.time.set_timer(pygame.USEREVENT, PIPE_FREQUENCY)
+
+    while running:
+        screen.blit(background_image, (0, 0))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if not game_over:
+                    if event.key == pygame.K_SPACE:
+                        bird.flap()
+                    if event.key == pygame.K_p:
+                        pause_menu()
+                if game_over and event.key == pygame.K_r:
+                    return main_game()
+                if game_over and event.key == pygame.K_q:
+                    return main_menu()
+            if event.type == pygame.USEREVENT and not game_over:
+                pipes.append(Pipe(SCREEN_WIDTH))
+
+        if not game_over:
+            bird.move()
+            bird.draw()
+
+            for pipe in pipes[:]:
+                pipe.move()
+                pipe.draw()
+                if pipe.x + 50 < 0:
+                    pipes.remove(pipe)
+                    score += 1
+                if pipe.collide(bird):
+                    collision_sound.play()
+                    game_over = True
+
+            if bird.y < 0 or bird.y + bird.height > SCREEN_HEIGHT:
+                collision_sound.play()
+                game_over = True
+
+            score_text = font.render(f"Score: {score}", True, BLACK)
+            screen.blit(score_text, (10, 10))
+        else:
+            game_over_text = font.render("Game Over", True, BLACK)
+            restart_text = font.render("Press R to Restart", True, BLACK)
+            home_text = font.render("Press Q to Go to Home", True, BLACK)
+
+            screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50))
+            screen.blit(restart_text, (SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2))
+            screen.blit(home_text, (SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 50))
+
+        pygame.display.flip()
+        clock.tick(30)
+
+if __name__ == "__main__":
+    main_menu()
