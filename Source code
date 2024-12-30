@@ -52,6 +52,25 @@ collision_sound = load_sound("collision.wav")
 clock = pygame.time.Clock()
 font = pygame.font.Font(None, 36)
 
+# Button class
+class Button:
+    def __init__(self, x, y, width, height, text, color, text_color, action=None):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.color = color
+        self.text_color = text_color
+        self.action = action  # Function to call when the button is clicked
+        self.font = pygame.font.Font(None, 36)
+
+    def draw(self):
+        pygame.draw.rect(screen, self.color, self.rect)
+        text_surface = self.font.render(self.text, True, self.text_color)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+
+    def is_clicked(self, pos):
+        return self.rect.collidepoint(pos)
+
 # Bird class
 class Bird:
     def __init__(self):
@@ -113,62 +132,86 @@ def save_high_score(new_high_score):
 
 high_score = load_high_score()
 
-def draw_score_and_high_score(score, high_score):
-    score_text = font.render(f"Score: {score}", True, BLACK)
-    high_score_text = font.render(f"High Score: {high_score}", True, BLACK)
-    screen.blit(score_text, (10, 10))
-    screen.blit(high_score_text, (10, 40))
-
 # Main menu
 def main_menu():
+    start_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50, "Start Game", WHITE, BLACK, main_game)
+    quit_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50, "Quit", WHITE, BLACK, pygame.quit)
+
     running = True
     while running:
         screen.blit(background_image, (0, 0))
-        title_text = font.render("Flappy Bird", True, BLACK)
-        start_text = font.render("Press SPACE to Start", True, BLACK)
-        quit_text = font.render("Press Q to Quit", True, BLACK)
-
-        screen.blit(title_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 100))
-        screen.blit(start_text, (SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2))
-        screen.blit(quit_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    main_game()
-                if event.key == pygame.K_q:
-                    pygame.quit()
-                    sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if start_button.is_clicked(event.pos):
+                    start_button.action()
+                if quit_button.is_clicked(event.pos):
+                    quit_button.action()
+
+        start_button.draw()
+        quit_button.draw()
 
         pygame.display.flip()
         clock.tick(30)
 
 # Pause menu
 def pause_menu():
+    resume_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50, "Resume", WHITE, BLACK)
+    quit_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50, "Quit", WHITE, BLACK, pygame.quit)
+
     paused = True
     while paused:
         screen.blit(background_image, (0, 0))
-        pause_text = font.render("Paused", True, BLACK)
-        resume_text = font.render("Press R to Resume", True, BLACK)
-        quit_text = font.render("Press Q to Quit", True, BLACK)
-
-        screen.blit(pause_text, (SCREEN_WIDTH // 2 - 50, SCREEN_HEIGHT // 2 - 50))
-        screen.blit(resume_text, (SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2))
-        screen.blit(quit_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if resume_button.is_clicked(event.pos):
                     paused = False
-                if event.key == pygame.K_q:
-                    pygame.quit()
-                    sys.exit()
+                if quit_button.is_clicked(event.pos):
+                    quit_button.action()
+
+        resume_button.draw()
+        quit_button.draw()
+
+        pygame.display.flip()
+        clock.tick(30)
+
+# Game over menu
+def game_over_menu(score):
+    global high_score
+    if score > high_score:
+        high_score = score
+        save_high_score(high_score)
+
+    restart_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50, "Restart", WHITE, BLACK, main_game)
+    home_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50, "Main Menu", WHITE, BLACK, main_menu)
+
+    game_over = True
+    while game_over:
+        screen.blit(background_image, (0, 0))
+        game_over_text = font.render("Game Over", True, BLACK)
+        screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 120))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if restart_button.is_clicked(event.pos):
+                    game_over = False
+                    restart_button.action()
+                if home_button.is_clicked(event.pos):
+                    game_over = False
+                    home_button.action()
+
+        restart_button.draw()
+        home_button.draw()
 
         pygame.display.flip()
         clock.tick(30)
@@ -197,10 +240,6 @@ def main_game():
                         bird.flap()
                     if event.key == pygame.K_p:
                         pause_menu()
-                if game_over and event.key == pygame.K_r:
-                    return main_game()
-                if game_over and event.key == pygame.K_q:
-                    return main_menu()
             if event.type == pygame.USEREVENT and not game_over:
                 pipes.append(Pipe(SCREEN_WIDTH))
 
@@ -214,7 +253,7 @@ def main_game():
 
                 if not pipe.passed and pipe.x + 50 < bird.x:
                     pipe.passed = True
-                    score += 1  # Increment score the moment the bird passes the pipe
+                    score += 1
 
                 if pipe.x + 50 < 0:
                     pipes.remove(pipe)
@@ -229,20 +268,17 @@ def main_game():
 
             draw_score_and_high_score(score, high_score)
         else:
-            if score > high_score:
-                high_score = score
-                save_high_score(high_score)
-
-            game_over_text = font.render("Game Over", True, BLACK)
-            restart_text = font.render("Press R to Restart", True, BLACK)
-            home_text = font.render("Press Q to Go to Home", True, BLACK)
-
-            screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50))
-            screen.blit(restart_text, (SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2))
-            screen.blit(home_text, (SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 50))
+            game_over_menu(score)
 
         pygame.display.flip()
         clock.tick(30)
+
+# Draw score and high score
+def draw_score_and_high_score(score, high_score):
+    score_text = font.render(f"Score: {score}", True, BLACK)
+    high_score_text = font.render(f"High Score: {high_score}", True, BLACK)
+    screen.blit(score_text, (10, 10))
+    screen.blit(high_score_text, (10, 40))
 
 if __name__ == "__main__":
     main_menu()
