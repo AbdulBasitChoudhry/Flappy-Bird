@@ -17,7 +17,7 @@ BLACK = (0, 0, 0)
 GRAVITY = 0.5
 FLAP_STRENGTH = -10
 PIPE_SPEED = -4
-PIPE_GAP = 300
+PIPE_GAP = 150
 PIPE_FREQUENCY = 1500  # milliseconds
 MAX_VELOCITY = 15
 
@@ -43,11 +43,23 @@ def load_sound(filename):
         print(f"Error loading sound {filename}: {e}")
         sys.exit()
 
-background_image = load_image("background.png", (SCREEN_WIDTH, SCREEN_HEIGHT))
-bird_frames = [load_image(f"bird_frame_{i}.png", (34, 24)) for i in range(1, 6)]
-pipe_image = load_image("pipe.png", (50, 600))
-flap_sound = load_sound("flap.wav")
-collision_sound = load_sound("collision.wav")
+# Replace with placeholders if assets are missing
+try:
+    background_image = load_image("background.png", (SCREEN_WIDTH, SCREEN_HEIGHT))
+    bird_frames = [load_image(f"bird_frame_{i}.png", (34, 24)) for i in range(1, 6)]
+    pipe_image = load_image("pipe.png", (50, 600))
+    flap_sound = load_sound("flap.wav")
+    collision_sound = load_sound("collision.wav")
+except SystemExit:
+    background_image = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    background_image.fill(WHITE)
+    bird_frames = [pygame.Surface((34, 24)) for _ in range(5)]
+    for frame in bird_frames:
+        frame.fill(BLACK)
+    pipe_image = pygame.Surface((50, 600))
+    pipe_image.fill(BLACK)
+    flap_sound = pygame.mixer.Sound(None)
+    collision_sound = pygame.mixer.Sound(None)
 
 clock = pygame.time.Clock()
 font = pygame.font.Font(None, 36)
@@ -123,7 +135,7 @@ def load_high_score():
     try:
         with open("high_score.txt", "r") as file:
             return int(file.read())
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return 0
 
 def save_high_score(new_high_score):
