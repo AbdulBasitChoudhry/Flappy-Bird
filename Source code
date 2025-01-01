@@ -13,13 +13,14 @@ SCREEN_HEIGHT = 600
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
-# Game settings
-GRAVITY = 0.5
-FLAP_STRENGTH = -10
-PIPE_SPEED = -4
-PIPE_GAP = 150
-PIPE_FREQUENCY = 1500  # milliseconds
-MAX_VELOCITY = 15
+# Default game settings
+DIFFICULTIES = {
+    "easy": {"gravity": 0.4, "flap_strength": -8, "pipe_speed": -3, "pipe_gap": 180, "pipe_frequency": 2000},
+    "normal": {"gravity": 0.5, "flap_strength": -10, "pipe_speed": -4, "pipe_gap": 150, "pipe_frequency": 1500},
+    "hard": {"gravity": 0.6, "flap_strength": -12, "pipe_speed": -5, "pipe_gap": 120, "pipe_frequency": 1200}
+}
+
+game_settings = DIFFICULTIES["normal"]
 
 # Initialize screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -64,24 +65,74 @@ except SystemExit:
 clock = pygame.time.Clock()
 font = pygame.font.Font(None, 36)
 
-# Button class
+# Button class with rounded corners and shadow effect
 class Button:
     def __init__(self, x, y, width, height, text, color, text_color, action=None):
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.color = color
         self.text_color = text_color
-        self.action = action  # Function to call when the button is clicked
+        self.action = action
         self.font = pygame.font.Font(None, 36)
 
     def draw(self):
-        pygame.draw.rect(screen, self.color, self.rect)
+        # Draw button with rounded corners and shadow effect
+        shadow_rect = pygame.Rect(self.rect.x + 5, self.rect.y + 5, self.rect.width, self.rect.height)
+        pygame.draw.rect(screen, (50, 50, 50), shadow_rect, border_radius=10)
+        pygame.draw.rect(screen, self.color, self.rect, border_radius=10)
+
         text_surface = self.font.render(self.text, True, self.text_color)
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
 
     def is_clicked(self, pos):
         return self.rect.collidepoint(pos)
+
+# Dropdown class with modern UI and hover effect
+class Dropdown:
+    def __init__(self, x, y, width, height, options, initial_option, font_color, bg_color, hover_color, action=None):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.options = options
+        self.selected_option = initial_option
+        self.font_color = font_color
+        self.bg_color = bg_color
+        self.hover_color = hover_color
+        self.expanded = False
+        self.action = action
+        self.font = pygame.font.Font(None, 36)
+
+    def draw(self):
+        # Draw dropdown with rounded corners and modern look
+        pygame.draw.rect(screen, self.bg_color, self.rect, border_radius=10)
+        selected_text = self.font.render(self.selected_option, True, self.font_color)
+        screen.blit(selected_text, (self.rect.x + 10, self.rect.y + 10))
+
+        if self.expanded:
+            for i, option in enumerate(self.options):
+                option_rect = pygame.Rect(
+                    self.rect.x, self.rect.y + (i + 1) * self.rect.height, self.rect.width, self.rect.height
+                )
+                pygame.draw.rect(screen, self.hover_color if option == self.selected_option else self.bg_color, option_rect, border_radius=10)
+                option_text = self.font.render(option, True, self.font_color)
+                screen.blit(option_text, (option_rect.x + 10, option_rect.y + 10))
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.expanded = not self.expanded
+            elif self.expanded:
+                for i, option in enumerate(self.options):
+                    option_rect = pygame.Rect(
+                        self.rect.x, self.rect.y + (i + 1) * self.rect.height, self.rect.width, self.rect.height
+                    )
+                    if option_rect.collidepoint(event.pos):
+                        self.selected_option = option
+                        if self.action:
+                            self.action(option)
+                        self.expanded = False
+                        break
+                else:
+                    self.expanded = False
 
 # Bird class
 class Bird:
@@ -95,16 +146,16 @@ class Bird:
         self.animation_timer = 0
 
     def flap(self):
-        self.velocity = FLAP_STRENGTH
+        self.velocity = game_settings["flap_strength"]
         flap_sound.play()
 
     def move(self):
-        self.velocity = min(self.velocity + GRAVITY, MAX_VELOCITY)
+        self.velocity = min(self.velocity + game_settings["gravity"], 15)
         self.y += self.velocity
 
     def draw(self):
         self.animation_timer += clock.get_time()
-        if self.animation_timer >= 100:  # Update every 100ms
+        if self.animation_timer >= 100:
             self.frame_index = (self.frame_index + 1) % len(bird_frames)
             self.animation_timer = 0
         screen.blit(bird_frames[self.frame_index], (self.x, self.y))
@@ -113,12 +164,12 @@ class Bird:
 class Pipe:
     def __init__(self, x):
         self.x = x
-        self.top_height = random.randint(50, SCREEN_HEIGHT - PIPE_GAP - 50)
-        self.bottom_height = SCREEN_HEIGHT - self.top_height - PIPE_GAP
+        self.top_height = random.randint(50, SCREEN_HEIGHT - game_settings["pipe_gap"] - 50)
+        self.bottom_height = SCREEN_HEIGHT - self.top_height - game_settings["pipe_gap"]
         self.passed = False
 
     def move(self):
-        self.x += PIPE_SPEED
+        self.x += game_settings["pipe_speed"]
 
     def draw(self):
         screen.blit(pipe_image, (self.x, 0), (0, 0, 50, self.top_height))
@@ -146,8 +197,16 @@ high_score = load_high_score()
 
 # Main menu
 def main_menu():
-    start_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50, "Start Game", WHITE, BLACK, main_game)
-    quit_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50, "Quit", WHITE, BLACK, pygame.quit)
+    global game_settings
+
+    start_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 40, 200, 50, "Start Game", (60, 60, 255), WHITE, main_game)
+    quit_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 40, 200, 50, "Quit", (255, 60, 60), WHITE, pygame.quit)
+
+    difficulty_dropdown = Dropdown(
+        SCREEN_WIDTH - 210, 20, 200, 50,  # Position at top-right
+        ["Easy", "Normal", "Hard"], "Normal", WHITE, (0, 128, 255), (200, 200, 200),
+        lambda option: set_difficulty(option.lower())
+    )
 
     running = True
     while running:
@@ -157,87 +216,34 @@ def main_menu():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            difficulty_dropdown.handle_event(event)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if start_button.is_clicked(event.pos):
                     start_button.action()
                 if quit_button.is_clicked(event.pos):
                     quit_button.action()
 
+        difficulty_dropdown.draw()
         start_button.draw()
         quit_button.draw()
 
         pygame.display.flip()
         clock.tick(30)
 
-# Pause menu
-def pause_menu():
-    resume_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50, "Resume", WHITE, BLACK)
-    quit_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50, "Quit", WHITE, BLACK, pygame.quit)
-
-    paused = True
-    while paused:
-        screen.blit(background_image, (0, 0))
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if resume_button.is_clicked(event.pos):
-                    paused = False
-                if quit_button.is_clicked(event.pos):
-                    quit_button.action()
-
-        resume_button.draw()
-        quit_button.draw()
-
-        pygame.display.flip()
-        clock.tick(30)
-
-# Game over menu
-def game_over_menu(score):
-    global high_score
-    if score > high_score:
-        high_score = score
-        save_high_score(high_score)
-
-    restart_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50, "Restart", WHITE, BLACK, main_game)
-    home_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50, "Main Menu", WHITE, BLACK, main_menu)
-
-    game_over = True
-    while game_over:
-        screen.blit(background_image, (0, 0))
-        game_over_text = font.render("Game Over", True, BLACK)
-        screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 120))
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if restart_button.is_clicked(event.pos):
-                    game_over = False
-                    restart_button.action()
-                if home_button.is_clicked(event.pos):
-                    game_over = False
-                    home_button.action()
-
-        restart_button.draw()
-        home_button.draw()
-
-        pygame.display.flip()
-        clock.tick(30)
+# Set difficulty
+def set_difficulty(level):
+    global game_settings
+    game_settings = DIFFICULTIES[level]
 
 # Main game loop
 def main_game():
     global high_score
+
     bird = Bird()
     pipes = []
     score = 0
     running = True
-    game_over = False
-
-    pygame.time.set_timer(pygame.USEREVENT, PIPE_FREQUENCY)
+    pygame.time.set_timer(pygame.USEREVENT, game_settings["pipe_frequency"])
 
     while running:
         screen.blit(background_image, (0, 0))
@@ -246,51 +252,43 @@ def main_game():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if not game_over:
-                    if event.key == pygame.K_SPACE:
-                        bird.flap()
-                    if event.key == pygame.K_p:
-                        pause_menu()
-            if event.type == pygame.USEREVENT and not game_over:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                bird.flap()
+            if event.type == pygame.USEREVENT:
                 pipes.append(Pipe(SCREEN_WIDTH))
 
-        if not game_over:
-            bird.move()
-            bird.draw()
+        bird.move()
+        bird.draw()
 
-            for pipe in pipes[:]:
-                pipe.move()
-                pipe.draw()
+        for pipe in pipes[:]:
+            pipe.move()
+            pipe.draw()
+            if pipe.x + 50 < 0:
+                pipes.remove(pipe)
+            if not pipe.passed and pipe.x < bird.x:
+                pipe.passed = True
+                score += 1
 
-                if not pipe.passed and pipe.x + 50 < bird.x:
-                    pipe.passed = True
-                    score += 1
-
-                if pipe.x + 50 < 0:
-                    pipes.remove(pipe)
-
-                if pipe.collide(bird):
-                    collision_sound.play()
-                    game_over = True
-
-            if bird.y < 0 or bird.y + bird.height > SCREEN_HEIGHT:
+            if pipe.collide(bird):
                 collision_sound.play()
-                game_over = True
+                running = False
 
-            draw_score_and_high_score(score, high_score)
-        else:
-            game_over_menu(score)
+        if bird.y > SCREEN_HEIGHT or bird.y < 0:
+            collision_sound.play()
+            running = False
+
+        score_text = font.render(f"Score: {score}", True, BLACK)
+        screen.blit(score_text, (10, 10))
+
+        high_score = max(high_score, score)
+        high_score_text = font.render(f"High Score: {high_score}", True, BLACK)
+        screen.blit(high_score_text, (10, 40))
 
         pygame.display.flip()
         clock.tick(30)
 
-# Draw score and high score
-def draw_score_and_high_score(score, high_score):
-    score_text = font.render(f"Score: {score}", True, BLACK)
-    high_score_text = font.render(f"High Score: {high_score}", True, BLACK)
-    screen.blit(score_text, (10, 10))
-    screen.blit(high_score_text, (10, 40))
+    save_high_score(high_score)
+    main_menu()
 
 if __name__ == "__main__":
     main_menu()
